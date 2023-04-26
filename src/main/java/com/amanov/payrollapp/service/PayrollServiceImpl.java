@@ -2,7 +2,9 @@ package com.amanov.payrollapp.service;
 
 import com.amanov.payrollapp.dto.PaymentRequest;
 import com.amanov.payrollapp.dto.PaymentResponse;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -19,6 +21,7 @@ public class PayrollServiceImpl implements PayrollService {
 
     @Override
     public PaymentResponse calculate(PaymentRequest request) {
+        checkRequest(request);
         long days = businessDays(request.getFirstDay(), request.getLastDay());
         return getPayment(request.getSalary(), days);
     }
@@ -34,7 +37,22 @@ public class PayrollServiceImpl implements PayrollService {
     }
 
     private PaymentResponse getPayment(double salary, long days) {
-        BigDecimal payment = BigDecimal.valueOf(salary / BUSINESS_DAYS * days).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal payment = BigDecimal.valueOf(salary / BUSINESS_DAYS * days)
+                .setScale(2, RoundingMode.HALF_UP);
         return new PaymentResponse(payment.toString());
+    }
+
+    private void checkRequest(PaymentRequest request) {
+        if (request.getFirstDay() == null || request.getLastDay() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Не указан конкретный период отпуска!", new IllegalArgumentException());
+        } else if (request.getSalary() < 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Указанная заработная плата ниже нуля!", new IllegalArgumentException());
+        } else if (request.getFirstDay().isAfter(request.getLastDay()) ||
+                request.getLastDay().isBefore(request.getFirstDay())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Указанаая дата отпуска неверна!", new IllegalArgumentException());
+        }
     }
 }
